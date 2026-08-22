@@ -5,12 +5,11 @@ import json
 import sqlite3
 from typing import List, Optional, Dict, Any
 from datetime import datetime
-from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 import uvicorn
 import httpx
@@ -44,15 +43,20 @@ _db_initialized = False
 def get_db_connection():
     global _db_initialized
     if not _db_initialized or not os.path.exists(DB_FILE):
-        init_db()
-        seed_demo_data()
-        _db_initialized = True
+        try:
+            init_db()
+            seed_demo_data()
+            _db_initialized = True
+        except Exception as e:
+            print(f"Database init warning: {e}")
     conn = sqlite3.connect(DB_FILE)
     conn.row_factory = sqlite3.Row
     return conn
 
 def init_db():
-    conn = get_db_connection()
+    os.makedirs(os.path.dirname(os.path.abspath(DB_FILE)), exist_ok=True)
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
     cursor.execute("""
@@ -156,7 +160,8 @@ def init_db():
 # SEED DEMO DATA (ANANYA'S STORYLINE)
 # ==========================================
 def seed_demo_data():
-    conn = get_db_connection()
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
     cursor.execute("SELECT count(*) FROM users")
@@ -436,11 +441,7 @@ async def query_llm_mentor(user_message: str, context: Dict[str, Any], user_id: 
     msg_raw = user_message.strip()
     msg_lower = msg_raw.lower()
 
-    # -----------------------------------------------------------
-    # 1. INTENT: WEBSITE ACTIONS & MUTATIONS (Execute with 100% precision)
-    # -----------------------------------------------------------
-    
-    # Tool: Add Task
+    # 1. INTENT: WEBSITE ACTIONS & MUTATIONS
     task_add_match = re.search(r'(?:add\s+task|create\s+task|remind\s+me\s+to|add\s+a\s+task)\s*(?::\s*|\s+for\s+me\s*:\s*|\s+to\s+|\s+that\s+)?(.+)', msg_lower, re.IGNORECASE)
     if task_add_match:
         raw_title = task_add_match.group(1).strip()
@@ -451,7 +452,6 @@ async def query_llm_mentor(user_message: str, context: Dict[str, Any], user_id: 
         res_str, act_info = execute_mentor_tool("add_task", {"title": clean_title, "due_date": due_date}, user_id)
         return f"✅ **Mentor Action Executed:** Added task **{clean_title}** (*Due: {due_date}*). It is now live on your checklist!", [act_info]
 
-    # Tool: Set Budget Cap
     cap_match = re.search(r'(?:set|update|change|cap|increase)\s+(?:my\s+|the\s+)?(?:monthly\s+|weekly\s+)?(food|travel|shopping|subscriptions|education|other)[a-z\s]*?\s+(?:to|=)\s*(?:rs\.?|inr|₹)?\s*([\d,]+)', msg_lower, re.IGNORECASE)
     if cap_match:
         cat = cap_match.group(1).capitalize()
@@ -459,14 +459,12 @@ async def query_llm_mentor(user_message: str, context: Dict[str, Any], user_id: 
         res_str, act_info = execute_mentor_tool("set_budget_cap", {"category": cat, "monthly_cap": val}, user_id)
         return f"📊 **Mentor Action Executed:** Updated monthly **{cat} budget cap** to **₹{val:,.0f}**. Your Budget page is updated!", [act_info]
 
-    # Tool: Update Income / Profile
     inc_match = re.search(r'(?:update|change|set)\s+(?:my\s+)?(?:monthly\s+)?income\s+(?:to|=)\s*(?:rs\.?|inr|₹)?\s*([\d,]+)', msg_lower, re.IGNORECASE)
     if inc_match:
         val = float(inc_match.group(1).replace(",", ""))
         res_str, act_info = execute_mentor_tool("update_profile", {"monthly_income": val}, user_id)
         return f"⚡ **Mentor Action Executed:** Monthly income updated to **₹{val:,.0f}**. Flexible room recalculated to **₹{val - profile['essential_expenses']:,.0f}**.", [act_info]
 
-    # Tool: Update Goal
     goal_match = re.search(r'(?:update|set|change|add|create|increase)\s+(?:my\s+)?(?:([A-Za-z\s]+?)\s+)?goal(?:\s+(?:for|to|of)\s+)?([A-Za-z\s]*?)\s*(?:target\s+to\s+|to\s+)?(?:rs\.?|inr|₹)?\s*([\d,]+)(?:\s+in\s+(\d+)\s+months?)?', msg_lower, re.IGNORECASE)
     if goal_match:
         title_cand = (goal_match.group(1) or goal_match.group(2) or "Laptop").strip().capitalize()
@@ -477,9 +475,7 @@ async def query_llm_mentor(user_message: str, context: Dict[str, Any], user_id: 
         res_str, act_info = execute_mentor_tool("set_goal", {"title": title_cand, "target_amount": target_amt, "deadline_months": dead_m}, user_id)
         return f"🎯 **Mentor Action Executed:** Goal **{title_cand}** updated to **₹{target_amt:,.0f}** over **{dead_m} months**.", [act_info]
 
-    # -----------------------------------------------------------
     # 2. TOPIC: INVESTING, STOCKS, CRYPTO, SIP, MUTUAL FUNDS
-    # -----------------------------------------------------------
     if any(k in msg_lower for k in ["invest", "crypto", "bitcoin", "stock", "mutual fund", "sip", "nifty", "shares", "equity"]):
         emergency_needed = profile['essential_expenses'] * 3
         has_buffer = profile['current_savings'] >= emergency_needed
@@ -499,9 +495,7 @@ async def query_llm_mentor(user_message: str, context: Dict[str, Any], user_id: 
                 f"* **Crypto Warning:** Keep high-risk speculative assets (like Bitcoin/Altcoins) under 5% of your total portfolio."
             ), []
 
-    # -----------------------------------------------------------
     # 3. TOPIC: EMERGENCY FUND & FINANCIAL SAFETY NET
-    # -----------------------------------------------------------
     if any(k in msg_lower for k in ["emergency", "safety net", "buffer", "liquid fund", "savings account"]):
         target = profile['essential_expenses'] * 3
         return (
@@ -512,9 +506,7 @@ async def query_llm_mentor(user_message: str, context: Dict[str, Any], user_id: 
             f"* **Check Dashboard:** The **Emergency Funds 101** module on your dashboard walks you through this step-by-step."
         ), []
 
-    # -----------------------------------------------------------
     # 4. TOPIC: SPENDING BREAKDOWN & RECENT TRANSACTIONS
-    # -----------------------------------------------------------
     if any(k in msg_lower for k in ["show my spend", "what did i spend", "spending on", "how much spent", "expenses breakdown", "my transactions", "recent spending"]):
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -527,9 +519,7 @@ async def query_llm_mentor(user_message: str, context: Dict[str, Any], user_id: 
         else:
             return "You haven't auto-synced any transactions yet. Your incoming bank SMS stream will populate this ledger automatically!", []
 
-    # -----------------------------------------------------------
     # 5. TOPIC: AFFORDABILITY & DISCRETIONARY PURCHASES
-    # -----------------------------------------------------------
     if any(k in msg_lower for k in ["afford", "can i buy", "can i spend", "should i buy", "trip", "dinner", "party", "movie", "shopping"]):
         amt_match = re.search(r'(?:rs\.?|inr|₹)?\s*([\d,]+)', msg_lower)
         cost = float(amt_match.group(1).replace(",", "")) if amt_match else 1500.0
@@ -556,9 +546,7 @@ async def query_llm_mentor(user_message: str, context: Dict[str, Any], user_id: 
                 f"* **Mentor Recommendation:** Spending ₹{cost:,.0f} exceeds your safe cushion. Consider limiting this expense to **₹{cushion * 0.5:,.0f}** or extending your goal deadline by 1-2 months."
             ), []
 
-    # -----------------------------------------------------------
     # 6. TOPIC: COMPOUND INTEREST & WEALTH ACCUMULATION
-    # -----------------------------------------------------------
     if any(k in msg_lower for k in ["compound", "compounding", "interest", "rule of 72", "wealth", "time value"]):
         return (
             f"**The Power of Compound Interest for College Students:**\n\n"
@@ -567,9 +555,7 @@ async def query_llm_mentor(user_message: str, context: Dict[str, Any], user_id: 
             f"* **The Cost of Waiting:** If you invest **₹1,000/month** starting at age 20 (earning 12%), by age 50 you will have over **₹35.3 Lakhs**. If you delay until age 30, you end up with only **₹9.9 Lakhs** — starting 10 years earlier yields nearly 4x more wealth with minimal effort!"
         ), []
 
-    # -----------------------------------------------------------
     # 7. TOPIC: CREDIT CARDS & CIBIL SCORE BUILDING
-    # -----------------------------------------------------------
     if any(k in msg_lower for k in ["credit", "cibil", "score", "debt", "loan", "card", "emi", "bnpl"]):
         return (
             f"**Smart Credit Building Strategy for Students (Zero Debt Traps):**\n\n"
@@ -579,9 +565,7 @@ async def query_llm_mentor(user_message: str, context: Dict[str, Any], user_id: 
             f"* **4. Beware of BNPL Micro-Loans:** Quick checkout loan apps report missed ₹200 payments as loan defaults, ruining your credit score for years."
         ), []
 
-    # -----------------------------------------------------------
     # 8. TOPIC: BUDGETING & 50/30/20 RULE
-    # -----------------------------------------------------------
     if any(k in msg_lower for k in ["budget", "50/30/20", "allocat", "cap", "needs", "wants"]):
         needs = profile['monthly_income'] * 0.5
         wants = profile['monthly_income'] * 0.3
@@ -594,9 +578,7 @@ async def query_llm_mentor(user_message: str, context: Dict[str, Any], user_id: 
             f"You can view and adjust your category caps with live danger meters on the **Budget** tab."
         ), []
 
-    # -----------------------------------------------------------
     # 9. GREETINGS & INTRODUCTIONS
-    # -----------------------------------------------------------
     if any(k in msg_lower for k in ["hello", "hi", "hey", "who are you", "what can you do", "help"]):
         return (
             f"Hello {profile.get('name', 'Ananya')}! 👋 I am your **Inbuilt AI Financial Mentor**.\n\n"
@@ -607,9 +589,7 @@ async def query_llm_mentor(user_message: str, context: Dict[str, Any], user_id: 
             f"* **Guidance:** Ask me about compounding, credit building, emergency buffers, or whether you can afford an outing!"
         ), []
 
-    # -----------------------------------------------------------
-    # 10. GENERAL CONVERSATION (Context-Grounded Response)
-    # -----------------------------------------------------------
+    # 10. GENERAL CONVERSATION
     return (
         f"Here is my guidance on **'{msg_raw}'** based on your financial standing:\n\n"
         f"* **Current Position:** Monthly Income ₹{profile['monthly_income']:,.0f} • Flexible Room ₹{profile['flexible_room']:,.0f} • Savings ₹{profile['current_savings']:,.0f}.\n"
@@ -618,19 +598,12 @@ async def query_llm_mentor(user_message: str, context: Dict[str, Any], user_id: 
     ), []
 
 # ==========================================
-# FASTAPI APPLICATION & SCHEMAS
+# FASTAPI APPLICATION & ROUTING
 # ==========================================
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    init_db()
-    seed_demo_data()
-    yield
-
 app = FastAPI(
     title="FinTex Inbuilt Mentor & Auto-Sync Backend",
     description="UN SDG 8.10 & 4.4 Financial Literacy, Auto-Synced SMS Ledger & Autonomous Inbuilt Mentor with Dynamic NLU Intelligence",
-    version="4.1.0",
-    lifespan=lifespan
+    version="4.2.0"
 )
 
 app.add_middleware(
@@ -641,15 +614,37 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Explicit static file routes for Vercel Serverless reliability
+@app.get("/static/style.css", include_in_schema=False)
+def get_css():
+    css_path = os.path.join(STATIC_DIR, "style.css")
+    if os.path.exists(css_path):
+        return FileResponse(css_path, media_type="text/css")
+    return Response(content="/* CSS */", media_type="text/css")
+
+@app.get("/static/app.js", include_in_schema=False)
+def get_js():
+    js_path = os.path.join(STATIC_DIR, "app.js")
+    if os.path.exists(js_path):
+        return FileResponse(js_path, media_type="application/javascript")
+    return Response(content="// JS", media_type="application/javascript")
+
 if os.path.exists(STATIC_DIR):
-    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+    try:
+        app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+    except Exception:
+        pass
 
 @app.get("/", include_in_schema=False)
 def get_index():
     index_file = os.path.join(STATIC_DIR, "index.html")
     if os.path.exists(index_file):
-        return FileResponse(index_file)
+        return FileResponse(index_file, media_type="text/html")
     return {"message": "FinTex Backend is Running. Please visit /docs for API documentation."}
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    return Response(status_code=204)
 
 class LoginRequest(BaseModel):
     name: str = "Ananya"
@@ -705,7 +700,7 @@ def health():
     return {
         "status": "ok",
         "service": "FinTex AI Financial Companion & Inbuilt Mentor",
-        "version": "4.1.0",
+        "version": "4.2.0",
         "sdg": ["SDG 8.10", "SDG 4.4"],
         "llm_engine": "Comprehensive-Conversational-NLU",
         "features": ["Login/Phone-Sync", "Overview", "Expenses", "Budget", "Goals", "Autonomous-Mentor"]
