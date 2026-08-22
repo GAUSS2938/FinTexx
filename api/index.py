@@ -6,7 +6,7 @@ import sqlite3
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
-from fastapi import FastAPI, HTTPException, Query, Response, Request
+from fastapi import FastAPI, HTTPException, Query, Response, Request, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import httpx
@@ -218,7 +218,7 @@ def seed_demo_data():
     conn.close()
 
 # ==========================================
-# MATH ENGINE & PARSER
+# MATH ENGINE & SMS PARSER
 # ==========================================
 class MathEngine:
     @staticmethod
@@ -414,7 +414,7 @@ async def query_llm_mentor(user_message: str, context: Dict[str, Any], user_id: 
     msg_raw = user_message.strip()
     msg_lower = msg_raw.lower()
 
-    # 1. INTENT: WEBSITE ACTIONS
+    # 1. INTENT: ACTIONS
     task_add_match = re.search(r'(?:add\s+task|create\s+task|remind\s+me\s+to|add\s+a\s+task)\s*(?::\s*|\s+for\s+me\s*:\s*|\s+to\s+|\s+that\s+)?(.+)', msg_lower, re.IGNORECASE)
     if task_add_match:
         raw_title = task_add_match.group(1).strip()
@@ -576,7 +576,7 @@ async def query_llm_mentor(user_message: str, context: Dict[str, Any], user_id: 
 app = FastAPI(
     title="FinTex Inbuilt Mentor & Auto-Sync Backend",
     description="UN SDG 8.10 & 4.4 Financial Literacy, Auto-Synced SMS Ledger & Autonomous Inbuilt Mentor",
-    version="4.5.0"
+    version="4.6.0"
 )
 
 app.add_middleware(
@@ -586,6 +586,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+router = APIRouter()
 
 class LoginRequest(BaseModel):
     name: str = "Ananya"
@@ -634,20 +636,20 @@ class BudgetCapRequest(BaseModel):
     monthly_cap: float
 
 # ==========================================
-# API ROUTERS
+# API ROUTER ENDPOINTS
 # ==========================================
-@app.get("/api/health")
+@router.get("/health")
 def health():
     return {
         "status": "ok",
         "service": "FinTex AI Financial Companion & Inbuilt Mentor",
-        "version": "4.5.0",
+        "version": "4.6.0",
         "sdg": ["SDG 8.10", "SDG 4.4"],
         "llm_engine": "Comprehensive-Conversational-NLU",
         "features": ["Login/Phone-Sync", "Overview", "Expenses", "Budget", "Goals", "Autonomous-Mentor"]
     }
 
-@app.post("/api/auth/login")
+@router.post("/auth/login")
 def login_user(req: LoginRequest):
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -680,7 +682,7 @@ def login_user(req: LoginRequest):
     conn.close()
     return {"status": "authenticated", "user_id": user_id, "name": req.name, "phone": req.phone, "sms_sync_active": req.sms_permission}
 
-@app.get("/api/dashboard/summary")
+@router.get("/dashboard/summary")
 def get_dashboard(user_id: int = 1):
     context = ContextBuilder.build_user_context(user_id)
     profile = context["user_profile"]
@@ -734,7 +736,7 @@ def get_dashboard(user_id: int = 1):
         "tasks": tasks
     }
 
-@app.get("/api/transactions")
+@router.get("/transactions")
 def get_transactions(user_id: int = 1, category: Optional[str] = None, search: Optional[str] = None, limit: int = 50):
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -756,7 +758,7 @@ def get_transactions(user_id: int = 1, category: Optional[str] = None, search: O
     conn.close()
     return {"transactions": rows, "count": len(rows)}
 
-@app.get("/api/budget/caps")
+@router.get("/budget/caps")
 def get_budget_caps(user_id: int = 1):
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -771,7 +773,7 @@ def get_budget_caps(user_id: int = 1):
     conn.close()
     return {"budget_caps": rows}
 
-@app.post("/api/budget/caps")
+@router.post("/budget/caps")
 def update_budget_cap(req: BudgetCapRequest):
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -788,7 +790,7 @@ def update_budget_cap(req: BudgetCapRequest):
     conn.close()
     return {"status": "updated", "category": req.category, "monthly_cap": req.monthly_cap}
 
-@app.post("/api/goals/calculate")
+@router.post("/goals/calculate")
 def calculate_goal(req: GoalCalculateRequest):
     result = MathEngine.calculate_savings_pacing(
         req.monthly_income or 15000.0,
@@ -799,7 +801,7 @@ def calculate_goal(req: GoalCalculateRequest):
     )
     return result
 
-@app.post("/api/transactions/sms-ingest")
+@router.post("/transactions/sms-ingest")
 def ingest_sms(req: SMSIngestRequest, user_id: int = 1):
     parsed = SMSParser.parse(req.raw_sms)
     
@@ -825,7 +827,7 @@ def ingest_sms(req: SMSIngestRequest, user_id: int = 1):
         "alert": alert
     }
 
-@app.post("/api/companion/chat")
+@router.post("/companion/chat")
 async def companion_chat(req: ChatRequest):
     context = ContextBuilder.build_user_context(req.user_id or 1)
     reply, actions_executed = await query_llm_mentor(req.message, context, req.user_id or 1)
@@ -850,7 +852,7 @@ async def companion_chat(req: ChatRequest):
         }
     }
 
-@app.get("/api/learning/modules")
+@router.get("/learning/modules")
 def get_learning_modules(user_id: int = 1):
     context = ContextBuilder.build_user_context(user_id)
     emergency_fund_target = context["user_profile"]["essential_expenses"] * 3
@@ -872,7 +874,7 @@ def get_learning_modules(user_id: int = 1):
 
     return {"modules": modules}
 
-@app.get("/api/tasks")
+@router.get("/tasks")
 def get_tasks(user_id: int = 1):
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -881,7 +883,7 @@ def get_tasks(user_id: int = 1):
     conn.close()
     return {"tasks": tasks}
 
-@app.post("/api/tasks")
+@router.post("/tasks")
 def add_task(req: TaskCreateRequest):
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -894,7 +896,7 @@ def add_task(req: TaskCreateRequest):
     conn.close()
     return {"task_id": task_id, "title": req.title, "due_date": req.due_date, "status": "pending"}
 
-@app.delete("/api/tasks/{task_id}")
+@router.delete("/tasks/{task_id}")
 def delete_task(task_id: int):
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -903,7 +905,7 @@ def delete_task(task_id: int):
     conn.close()
     return {"status": "deleted", "task_id": task_id}
 
-@app.post("/api/tasks/{task_id}/toggle")
+@router.post("/tasks/{task_id}/toggle")
 def toggle_task(task_id: int):
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -919,7 +921,7 @@ def toggle_task(task_id: int):
     conn.close()
     return {"task_id": task_id, "new_status": new_status}
 
-@app.put("/api/profile")
+@router.put("/profile")
 def update_profile(req: ProfileUpdateRequest):
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -941,7 +943,7 @@ def update_profile(req: ProfileUpdateRequest):
         "current_savings": req.current_savings
     }
 
-@app.post("/api/goals")
+@router.post("/goals")
 def create_goal(req: GoalCreateRequest):
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -960,3 +962,9 @@ def create_goal(req: GoalCreateRequest):
     conn.commit()
     conn.close()
     return {"goal_id": goal_id, "title": req.title, "pacing": pacing}
+
+# ==========================================
+# MOUNT ROUTERS UNDER BOTH PREFIXES
+# ==========================================
+app.include_router(router, prefix="")
+app.include_router(router, prefix="/api")
