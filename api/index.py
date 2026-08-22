@@ -1,24 +1,19 @@
-import os
 from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-app = FastAPI(title="Inspector")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app = FastAPI()
 
-@app.get("/health")
-@app.get("/api/health")
-def health():
-    return {"status": "ok", "service": "FinTex AI Financial Companion"}
+@app.middleware("http")
+async def log_middleware(request: Request, call_next):
+    # Print or inspect
+    return JSONResponse({
+        "received_path": request.scope.get("path"),
+        "raw_path": str(request.scope.get("raw_path")),
+        "root_path": request.scope.get("root_path"),
+        "headers": dict(request.headers),
+        "url": str(request.url)
+    })
 
-@app.api_route("/{full_path:path}", methods=["GET", "POST", "PUT", "DELETE"])
-async def catch_all(request: Request, full_path: str):
-    return {
-        "status": "inspector",
-        "full_path": full_path,
-        "scope_path": request.scope.get("path"),
-        "scope_root_path": request.scope.get("root_path"),
-        "url_path": request.url.path,
-        "method": request.method,
-        "headers": dict(request.headers)
-    }
+@app.get("/")
+def root():
+    return {"message": "root"}
