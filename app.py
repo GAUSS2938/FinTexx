@@ -18,14 +18,35 @@ import httpx
 # ==========================================
 # CONFIGURATION & CONSTANTS
 # ==========================================
-DB_FILE = "finance_companion.db"
+IS_VERCEL = bool(os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"))
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+if IS_VERCEL:
+    DB_FILE = "/tmp/finance_companion.db"
+else:
+    DB_FILE = os.path.join(BASE_DIR, "finance_companion.db")
+
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "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")
+
+# Static directory resolution
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+if not os.path.exists(STATIC_DIR):
+    STATIC_DIR = os.path.join(BASE_DIR, "..", "static")
+if not os.path.exists(STATIC_DIR):
+    STATIC_DIR = os.path.abspath("static")
 
 # ==========================================
 # DATABASE SETUP & INITIALIZATION
 # ==========================================
+_db_initialized = False
+
 def get_db_connection():
+    global _db_initialized
+    if not _db_initialized or not os.path.exists(DB_FILE):
+        init_db()
+        seed_demo_data()
+        _db_initialized = True
     conn = sqlite3.connect(DB_FILE)
     conn.row_factory = sqlite3.Row
     return conn
@@ -620,12 +641,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-os.makedirs("static", exist_ok=True)
-app.mount("/static", StaticFiles(directory="static"), name="static")
+if os.path.exists(STATIC_DIR):
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 @app.get("/", include_in_schema=False)
 def get_index():
-    index_file = os.path.join("static", "index.html")
+    index_file = os.path.join(STATIC_DIR, "index.html")
     if os.path.exists(index_file):
         return FileResponse(index_file)
     return {"message": "FinTex Backend is Running. Please visit /docs for API documentation."}
