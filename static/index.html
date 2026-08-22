@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FinTex — Inbuilt AI Financial Mentor & Auto-Synced Ledger</title>
+  <meta name="description" content="AI Financial Literacy & Autonomous Mentor Platform aligned with UN SDG 8.10 & 4.4. Features Phone SMS auto-sync, 50/30/20 budget visualizer, goal pacing simulator, and autonomous task execution.">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+  <!-- ======================================================= -->
+  <!-- 1. LOGIN & SMS PERMISSION CONSENT SCREEN -->
+  <!-- ======================================================= -->
+  <section class="login-screen-wrap" id="view-login">
+    <div class="login-card">
+      <div class="login-brand">
+        <div class="login-logo">₹</div>
+        <div class="login-title">
+          <h2>FinTex Companion</h2>
+          <p>UN SDG 8.10 & 4.4 • Financial Inclusion</p>
+        </div>
+      </div>
+
+      <form id="login-form">
+        <div style="margin-bottom: 1rem;">
+          <label style="display:block; font-size:0.75rem; font-family:'JetBrains Mono',monospace; color:var(--text-muted); margin-bottom:0.35rem; text-transform:uppercase;">
+            Full Name
+          </label>
+          <input type="text" id="login-name-input" class="replit-input" value="Ananya" style="width:100%;" required>
+        </div>
+
+        <div style="margin-bottom: 1.25rem;">
+          <label style="display:block; font-size:0.75rem; font-family:'JetBrains Mono',monospace; color:var(--text-muted); margin-bottom:0.35rem; text-transform:uppercase;">
+            Mobile Phone Number
+          </label>
+          <div class="phone-input-group">
+            <span class="phone-prefix">🇮🇳 +91</span>
+            <input type="tel" id="login-phone-input" class="replit-input" value="98765 43210" placeholder="98765 43210" style="flex-grow:1;" required>
+          </div>
+        </div>
+
+        <!-- SMS Permission Consent Card -->
+        <div class="permission-consent-box">
+          <input type="checkbox" id="login-sms-permission" checked style="margin-top:3px; accent-color:var(--sea-blue); width:18px; height:18px; cursor:pointer;">
+          <div class="permission-text">
+            <div class="permission-title">
+              <span>🔒 Grant SMS Notification Sync Permission</span>
+            </div>
+            <div class="permission-desc">
+              Allows FinTex to automatically sync with your phone's incoming bank & UPI transaction alerts (HDFC, SBI, ICICI, Swiggy, Uber, etc.) in real time without manual data entry.
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" class="replit-btn replit-btn-primary" style="width:100%; justify-content:center; padding:0.85rem; font-size:0.9rem;">
+          <span>Secure Sign In & Auto-Sync ➔</span>
+        </button>
+      </form>
+    </div>
+  </section>
+
+  <!-- ======================================================= -->
+  <!-- 2. MAIN APPLICATION WORKSPACE -->
+  <!-- ======================================================= -->
+  <div id="view-app" style="display:none;">
+
+    <!-- Top Navigation Header -->
+    <header class="replit-navbar">
+      <div class="brand-wrap">
+        <div class="replit-logo-icon">₹</div>
+        <div style="display:flex; flex-direction:column;">
+          <span style="font-family:'Outfit',sans-serif; font-weight:700; color:#fff; font-size:1.05rem;">FinTex</span>
+          <span style="font-family:'JetBrains Mono',monospace; font-size:0.65rem; color:var(--sea-cyan);">Inbuilt Mentor v3.0</span>
+        </div>
+      </div>
+
+      <!-- Navigation Page Tabs -->
+      <nav class="nav-page-tabs" role="tablist">
+        <button class="tab-btn active" data-target="overview" id="nav-tab-overview">
+          <span>📊 Overview</span>
+        </button>
+        <button class="tab-btn" data-target="expenses" id="nav-tab-expenses">
+          <span>💳 Expenses</span>
+        </button>
+        <button class="tab-btn" data-target="budget" id="nav-tab-budget">
+          <span>⚖️ Budget</span>
+        </button>
+        <button class="tab-btn" data-target="goals" id="nav-tab-goals">
+          <span>🎯 Goals</span>
+        </button>
+        <button class="tab-btn" data-target="mentor" id="nav-tab-mentor">
+          <span>🤖 Mentor</span>
+        </button>
+      </nav>
+
+      <div class="nav-controls">
+        <div class="status-badge" id="sms-sync-status">
+          <div class="dot-live"></div>
+          <span>SMS Auto-Syncing</span>
+        </div>
+        <button class="replit-btn replit-btn-sm" id="btn-edit-profile-nav">
+          <span>👤 <span id="app-user-name">Ananya</span></span>
+        </button>
+        <button class="replit-btn replit-btn-sm" id="btn-logout" title="Sign Out">
+          <span>Exit ↪</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Workspace Container -->
+    <main class="main-wrap">
+
+      <!-- Proactive AI Intelligence Banner -->
+      <section class="proactive-strip">
+        <div class="proactive-icon">💡</div>
+        <div class="proactive-body">
+          <div class="proactive-tag">Autonomous Financial Intelligence</div>
+          <div class="proactive-text" id="ai-insight-text">Analyzing your financial buffer and auto-synced phone transactions...</div>
+        </div>
+      </section>
+
+      <!-- ==========================================
+           PAGE 1: OVERVIEW PAGE
+           ========================================== -->
+      <div class="page-view active" id="page-overview">
+        <!-- Top Metrics Strip -->
+        <div class="metrics-strip-grid">
+          <div class="replit-card">
+            <div class="metric-top">
+              <span class="metric-tag-label">Monthly Income</span>
+              <span class="metric-pill-badge pill-income">Inflow</span>
+            </div>
+            <div class="metric-huge-val" id="val-income">₹15,000</div>
+            <div class="metric-caption">Stipend & campus part-time</div>
+          </div>
+
+          <div class="replit-card">
+            <div class="metric-top">
+              <span class="metric-tag-label">Essential Needs</span>
+              <span class="metric-pill-badge pill-essentials">Fixed 46.7%</span>
+            </div>
+            <div class="metric-huge-val" id="val-essentials">₹7,000</div>
+            <div class="metric-caption">Rent, groceries & college commute</div>
+          </div>
+
+          <div class="replit-card">
+            <div class="metric-top">
+              <span class="metric-tag-label">Flexible Capacity</span>
+              <span class="metric-pill-badge pill-flexible">Discretionary</span>
+            </div>
+            <div class="metric-huge-val" id="val-flexible">₹8,000</div>
+            <div class="metric-caption">Available for goals & wants</div>
+          </div>
+
+          <div class="replit-card">
+            <div class="metric-top">
+              <span class="metric-tag-label">Liquid Savings</span>
+              <span class="metric-pill-badge pill-savings">Safety Buffer</span>
+            </div>
+            <div class="metric-huge-val" id="val-savings">₹10,000</div>
+            <div class="metric-caption">Goal: ₹21,000 (3-mo buffer)</div>
+          </div>
+        </div>
+
+        <!-- Overview Two-Column Summary Grid -->
+        <div style="display:grid; grid-template-columns:1.5fr 1fr; gap:1.25rem;">
+          
+          <!-- Left: Active Goal Progress Ring & Math Simulator Teaser -->
+          <div class="replit-card">
+            <div class="card-header-bar">
+              <h3 class="card-title-text"><span>🎯</span> Primary Goal Pacing</h3>
+              <button class="replit-btn replit-btn-sm" onclick="navigateTo('goals')">View All Goals ↗</button>
+            </div>
+            <div style="display:flex; gap:1.5rem; align-items:center; background:#121826; padding:1.2rem; border-radius:var(--radius-sm); border:1px solid var(--border-subtle);">
+              <div class="goal-svg-wrap">
+                <svg width="90" height="90" viewBox="0 0 100 100">
+                  <circle class="goal-circle-bg" cx="50" cy="50" r="42"></circle>
+                  <circle class="goal-circle-bar" id="overview-goal-bar" cx="50" cy="50" r="42"></circle>
+                </svg>
+                <div class="goal-pct-center">
+                  <div class="goal-pct-number" id="overview-goal-pct">25%</div>
+                  <div style="font-size:0.6rem; color:var(--text-dim);">SAVED</div>
+                </div>
+              </div>
+              <div style="flex-grow:1;">
+                <h4 id="overview-goal-title" style="font-size:1.15rem; color:#fff; margin-bottom:0.3rem;">Laptop</h4>
+                <div style="font-size:0.82rem; color:var(--text-muted); line-height:1.4;">
+                  Target: <strong id="overview-goal-target" style="color:#fff;">₹40,000</strong> • Monthly Saving: <strong id="overview-goal-monthly" style="color:var(--sea-cyan);">₹5,000/mo</strong>
+                </div>
+                <div style="font-size:0.75rem; color:var(--text-dim); margin-top:4px;">
+                  Timeline: <span id="overview-goal-deadline">6 Months</span> • Pacing: <span style="color:#34d399;">Realistic (62.5% flex room)</span>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top:1.2rem;">
+              <h4 style="font-size:0.85rem; color:var(--text-white); margin-bottom:0.6rem;">Recent Auto-Synced SMS Transactions:</h4>
+              <div id="overview-recent-transactions" style="display:flex; flex-direction:column; gap:6px;">
+                <!-- Rendered dynamically -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Action Checklist & Mentor Quick Launch -->
+          <div class="replit-card">
+            <div class="card-header-bar">
+              <h3 class="card-title-text"><span>✅</span> Action Checklist</h3>
+              <button class="replit-btn replit-btn-sm" id="btn-overview-add-task">+ Task</button>
+            </div>
+            <div class="tasks-container" id="overview-tasks-list">
+              <!-- Rendered dynamically -->
+            </div>
+
+            <div style="margin-top:1.2rem; background:rgba(0,121,242,0.06); border:1px dashed var(--border-glow); border-radius:var(--radius-sm); padding:1rem; text-align:center;">
+              <div style="font-size:0.85rem; font-weight:600; color:var(--sea-cyan); margin-bottom:4px;">🤖 Inbuilt Mentor Assistant</div>
+              <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.75rem;">
+                Need to adjust budget caps, add tasks, or analyze your spending? Ask your mentor!
+              </p>
+              <button class="replit-btn replit-btn-primary" onclick="navigateTo('mentor')">Open Mentor Chat ➔</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ==========================================
+           PAGE 2: EXPENSES PAGE
+           ========================================== -->
+      <div class="page-view" id="page-expenses">
+        <div class="replit-card">
+          <div class="card-header-bar">
+            <h2 class="card-title-text"><span>💳</span> Auto-Synced Phone Transaction Ledger</h2>
+            <div style="display:flex; gap:8px;">
+              <button class="replit-btn replit-btn-sm replit-btn-emerald" id="btn-trigger-mock-sms">
+                <span>📱 Simulate Incoming Bank SMS</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Phone Notification Preview Strip -->
+          <div style="background:#0d121c; border:1px solid #283347; border-left:4px solid var(--sea-cyan); border-radius:var(--radius-sm); padding:0.85rem 1rem; margin-bottom:1rem; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-size:0.72rem; font-family:'JetBrains Mono',monospace; color:var(--sea-cyan);">LIVE PHONE STREAM SYNC ACTIVE</div>
+              <div style="font-size:0.82rem; color:var(--text-white);" id="expenses-stream-preview">
+                Waiting for incoming bank / UPI transaction alert...
+              </div>
+            </div>
+            <span class="status-badge" style="font-size:0.7rem;">Auto-Ingesting</span>
+          </div>
+
+          <!-- Controls: Search & Category Filter Pills -->
+          <div class="expenses-controls-bar">
+            <div class="filter-pills-row" id="expenses-filter-pills">
+              <button class="filter-pill active" data-cat="All">All Transactions</button>
+              <button class="filter-pill" data-cat="Food">🍔 Food</button>
+              <button class="filter-pill" data-cat="Travel">🚕 Travel</button>
+              <button class="filter-pill" data-cat="Shopping">🛍️ Shopping</button>
+              <button class="filter-pill" data-cat="Subscriptions">🎵 Subscriptions</button>
+              <button class="filter-pill" data-cat="Education">📚 Education</button>
+              <button class="filter-pill" data-cat="Other">💳 Other</button>
+            </div>
+            <input type="text" id="expenses-search-input" class="replit-input" placeholder="Search merchant, text..." style="max-width:260px; padding:0.5rem 0.75rem;">
+          </div>
+
+          <!-- Transactions Table -->
+          <div class="ledger-table-wrap">
+            <table class="ledger-table">
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th>Merchant</th>
+                  <th>Raw Phone SMS Text</th>
+                  <th>Amount</th>
+                  <th>Timestamp</th>
+                </tr>
+              </thead>
+              <tbody id="expenses-table-body">
+                <!-- Rendered dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==========================================
+           PAGE 3: BUDGET PAGE
+           ========================================== -->
+      <div class="page-view" id="page-budget">
+        <div class="replit-card">
+          <div class="card-header-bar">
+            <h2 class="card-title-text"><span>⚖️</span> 50/30/20 Budgeting Framework & Category Caps</h2>
+            <button class="replit-btn replit-btn-sm" id="btn-open-budget-cap-modal">+ Adjust Caps</button>
+          </div>
+
+          <!-- 50/30/20 Allocation Rule Cards -->
+          <div class="budget-rule-grid">
+            <div class="budget-rule-card" style="border-top:3px solid var(--rose);">
+              <div style="font-family:'JetBrains Mono',monospace; font-size:0.72rem; color:var(--rose); text-transform:uppercase;">Needs (50%)</div>
+              <div style="font-size:1.4rem; font-weight:700; color:#fff; margin:0.3rem 0;" id="budget-needs-val">₹7,500</div>
+              <div style="font-size:0.75rem; color:var(--text-muted);">Rent, groceries, campus books & transit</div>
+            </div>
+
+            <div class="budget-rule-card" style="border-top:3px solid var(--replit-amber);">
+              <div style="font-family:'JetBrains Mono',monospace; font-size:0.72rem; color:var(--replit-amber); text-transform:uppercase;">Wants (30%)</div>
+              <div style="font-size:1.4rem; font-weight:700; color:#fff; margin:0.3rem 0;" id="budget-wants-val">₹4,500</div>
+              <div style="font-size:0.75rem; color:var(--text-muted);">Dining out, entertainment, shopping</div>
+            </div>
+
+            <div class="budget-rule-card" style="border-top:3px solid var(--emerald);">
+              <div style="font-family:'JetBrains Mono',monospace; font-size:0.72rem; color:var(--emerald); text-transform:uppercase;">Savings & Goals (20%)</div>
+              <div style="font-size:1.4rem; font-weight:700; color:#fff; margin:0.3rem 0;" id="budget-savings-val">₹3,000</div>
+              <div style="font-size:0.75rem; color:var(--text-muted);">Direct deposit to Laptop goal & emergency fund</div>
+            </div>
+          </div>
+
+          <!-- Category Budget Caps List -->
+          <h3 style="font-size:0.95rem; color:var(--text-white); margin-bottom:0.85rem;">Monthly Category Budget Caps vs Auto-Synced Spending:</h3>
+          <div class="budget-cap-list" id="budget-caps-container">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+      </div>
+
+      <!-- ==========================================
+           PAGE 4: GOALS PAGE
+           ========================================== -->
+      <div class="page-view" id="page-goals">
+        <div class="replit-card">
+          <div class="card-header-bar">
+            <h2 class="card-title-text"><span>🎯</span> Savings Goals & Math Pacing Simulator</h2>
+            <button class="replit-btn replit-btn-sm replit-btn-primary" id="btn-open-new-goal-modal">+ New Goal</button>
+          </div>
+
+          <div class="goals-cards-grid" id="goals-cards-grid">
+            <!-- Rendered dynamically -->
+          </div>
+
+          <!-- Math Simulator -->
+          <div style="background:#121826; border:1px dashed var(--border-glow); border-radius:var(--radius-md); padding:1.25rem; margin-top:1.5rem;">
+            <div style="font-size:0.9rem; font-weight:700; color:var(--sea-cyan); margin-bottom:0.85rem; display:flex; align-items:center; gap:8px;">
+              <span>⚡ Math Pacing Engine Simulator</span>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; margin-bottom:1rem;">
+              <div>
+                <div style="display:flex; justify-content:space-between; font-size:0.75rem; margin-bottom:4px;">
+                  <span style="color:var(--text-muted);">Target Amount</span>
+                  <strong id="sim-target-label" style="color:#fff;">₹40,000</strong>
+                </div>
+                <input type="range" id="sim-target-slider" min="10000" max="100000" step="5000" value="40000">
+              </div>
+
+              <div>
+                <div style="display:flex; justify-content:space-between; font-size:0.75rem; margin-bottom:4px;">
+                  <span style="color:var(--text-muted);">Deadline Months</span>
+                  <strong id="sim-deadline-label" style="color:#fff;">6 Months</strong>
+                </div>
+                <input type="range" id="sim-deadline-slider" min="1" max="24" step="1" value="6">
+              </div>
+            </div>
+
+            <div style="background:#0a0e17; border:1px solid var(--border-subtle); border-radius:var(--radius-sm); padding:0.85rem 1rem; display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <div style="font-size:0.68rem; font-family:'JetBrains Mono',monospace; color:var(--text-dim);">REQUIRED MONTHLY SAVING</div>
+                <div style="font-size:1.1rem; font-weight:700; color:#fff;" id="sim-required-monthly">₹5,000 / month</div>
+              </div>
+              <div style="text-align:right;">
+                <span id="sim-status-tag" class="sdg-pill" style="background:rgba(16,185,129,0.15); color:#34d399; border-color:rgba(16,185,129,0.4);">
+                  Realistic Pacing (62.5% Flex)
+                </span>
+                <div style="font-size:0.7rem; color:var(--text-dim); margin-top:2px;" id="sim-status-note">Optimal timeline for ₹8k flexible room</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==========================================
+           PAGE 5: INBUILT MENTOR PAGE
+           ========================================== -->
+      <div class="page-view" id="page-mentor">
+        <div class="mentor-console">
+          <div class="mentor-header-info">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <div style="font-size:1.2rem;">🤖</div>
+              <div>
+                <div style="font-size:0.95rem; font-weight:700; color:#fff;">Inbuilt AI Financial Mentor</div>
+                <div style="font-size:0.7rem; color:var(--sea-cyan); font-family:'JetBrains Mono',monospace;">AUTONOMOUS TASK EXECUTOR ENABLED</div>
+              </div>
+            </div>
+            <span class="sdg-pill">UN SDG 8.10 Guardrails Active</span>
+          </div>
+
+          <!-- Chat Messages Thread -->
+          <div class="mentor-chat-thread" id="mentor-chat-thread">
+            <div class="chat-bubble ai">
+              Hi Ananya! 👋 I am your autonomous <strong>Inbuilt Financial Mentor</strong>. I monitor your <strong>₹15,000/mo</strong> income and auto-synced bank transactions.
+              <br><br>
+              You can ask financial questions, or tell me to <strong>execute actions inside the website</strong>, such as:
+              <ul>
+                <li><em>"Add task: Review Swiggy dining cap by Sunday"</em></li>
+                <li><em>"Set food budget cap to ₹4,500"</em></li>
+                <li><em>"Update my monthly income to ₹18,000"</em></li>
+                <li><em>"Update laptop goal to ₹45,000 in 8 months"</em></li>
+                <li><em>"What did I spend on food this month?"</em></li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Mentor Quick Prompt Chips -->
+          <div class="mentor-prompt-chips" id="mentor-prompt-chips">
+            <button class="mentor-prompt-chip" data-cmd="Add task: Review Swiggy dining cap by Sunday">➕ Add task: Review Swiggy</button>
+            <button class="mentor-prompt-chip" data-cmd="Set food budget cap to 4500">📊 Set Food Cap to ₹4,500</button>
+            <button class="mentor-prompt-chip" data-cmd="Update my income to 18000">💼 Update Income to ₹18k</button>
+            <button class="mentor-prompt-chip" data-cmd="Update laptop goal to 45000 in 8 months">🎯 Set Laptop Goal ₹45k</button>
+            <button class="mentor-prompt-chip" data-cmd="What did I spend on food this month?">🍔 Check Food Expenses</button>
+            <button class="mentor-prompt-chip" data-cmd="Should I start investing in stocks right now?">📈 Should I invest now?</button>
+          </div>
+
+          <!-- Chat Input Bar -->
+          <form class="mentor-input-row" id="mentor-chat-form">
+            <input type="text" id="mentor-chat-input" class="replit-input" placeholder="Give your mentor a command or ask advice (e.g. 'Set food cap to 4500', 'Add task...')..." autocomplete="off" required>
+            <button type="submit" class="replit-btn replit-btn-primary" id="btn-mentor-send">Send Command</button>
+          </form>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- ======================================================= -->
+  <!-- 3. MODALS & POPUPS -->
+  <!-- ======================================================= -->
+
+  <!-- Edit Profile Modal -->
+  <div class="replit-modal-overlay" id="modal-profile">
+    <div class="replit-modal-box">
+      <div class="modal-title-row">
+        <h3>Edit Financial Profile</h3>
+        <button class="task-delete-btn" id="btn-close-profile-modal">&times;</button>
+      </div>
+      <form id="profile-form">
+        <div style="margin-bottom:0.85rem;">
+          <label style="display:block; font-size:0.72rem; font-family:'JetBrains Mono',monospace; color:var(--text-muted); margin-bottom:0.3rem;">MONTHLY INCOME (₹)</label>
+          <input type="number" id="prof-income-input" class="replit-input" value="15000" style="width:100%;" required>
+        </div>
+        <div style="margin-bottom:0.85rem;">
+          <label style="display:block; font-size:0.72rem; font-family:'JetBrains Mono',monospace; color:var(--text-muted); margin-bottom:0.3rem;">ESSENTIAL EXPENSES (₹)</label>
+          <input type="number" id="prof-essentials-input" class="replit-input" value="7000" style="width:100%;" required>
+        </div>
+        <div style="margin-bottom:0.85rem;">
+          <label style="display:block; font-size:0.72rem; font-family:'JetBrains Mono',monospace; color:var(--text-muted); margin-bottom:0.3rem;">CURRENT LIQUID SAVINGS (₹)</label>
+          <input type="number" id="prof-savings-input" class="replit-input" value="10000" style="width:100%;" required>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:1.25rem;">
+          <button type="button" class="replit-btn" id="btn-cancel-profile-modal">Cancel</button>
+          <button type="submit" class="replit-btn replit-btn-primary">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Create Goal Modal -->
+  <div class="replit-modal-overlay" id="modal-new-goal">
+    <div class="replit-modal-box">
+      <div class="modal-title-row">
+        <h3>Create New Savings Goal</h3>
+        <button class="task-delete-btn" id="btn-close-goal-modal">&times;</button>
+      </div>
+      <form id="new-goal-form">
+        <div style="margin-bottom:0.85rem;">
+          <label style="display:block; font-size:0.72rem; font-family:'JetBrains Mono',monospace; color:var(--text-muted); margin-bottom:0.3rem;">GOAL TITLE</label>
+          <input type="text" id="new-goal-title" class="replit-input" placeholder="e.g. Electric Scooter, Goa Trip" style="width:100%;" required>
+        </div>
+        <div style="margin-bottom:0.85rem;">
+          <label style="display:block; font-size:0.72rem; font-family:'JetBrains Mono',monospace; color:var(--text-muted); margin-bottom:0.3rem;">TARGET AMOUNT (₹)</label>
+          <input type="number" id="new-goal-target" class="replit-input" value="50000" style="width:100%;" required>
+        </div>
+        <div style="margin-bottom:0.85rem;">
+          <label style="display:block; font-size:0.72rem; font-family:'JetBrains Mono',monospace; color:var(--text-muted); margin-bottom:0.3rem;">DEADLINE (MONTHS)</label>
+          <input type="number" id="new-goal-months" class="replit-input" value="8" min="1" max="36" style="width:100%;" required>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:1.25rem;">
+          <button type="button" class="replit-btn" id="btn-cancel-goal-modal">Cancel</button>
+          <button type="submit" class="replit-btn replit-btn-primary">Save Goal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Adjust Budget Cap Modal -->
+  <div class="replit-modal-overlay" id="modal-budget-cap">
+    <div class="replit-modal-box">
+      <div class="modal-title-row">
+        <h3>Adjust Category Budget Cap</h3>
+        <button class="task-delete-btn" id="btn-close-cap-modal">&times;</button>
+      </div>
+      <form id="budget-cap-form">
+        <div style="margin-bottom:0.85rem;">
+          <label style="display:block; font-size:0.72rem; font-family:'JetBrains Mono',monospace; color:var(--text-muted); margin-bottom:0.3rem;">CATEGORY</label>
+          <select id="cap-category-select" class="replit-input" style="width:100%;">
+            <option value="Food">Food</option>
+            <option value="Travel">Travel</option>
+            <option value="Shopping">Shopping</option>
+            <option value="Subscriptions">Subscriptions</option>
+            <option value="Education">Education</option>
+          </select>
+        </div>
+        <div style="margin-bottom:0.85rem;">
+          <label style="display:block; font-size:0.72rem; font-family:'JetBrains Mono',monospace; color:var(--text-muted); margin-bottom:0.3rem;">MONTHLY CAP (₹)</label>
+          <input type="number" id="cap-amount-input" class="replit-input" value="5000" style="width:100%;" required>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:1.25rem;">
+          <button type="button" class="replit-btn" id="btn-cancel-cap-modal">Cancel</button>
+          <button type="submit" class="replit-btn replit-btn-primary">Save Cap</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Replit Toast Notification -->
+  <div class="replit-toast" id="replit-toast">
+    <span id="toast-icon">⚡</span>
+    <span id="toast-msg">Operation completed</span>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
