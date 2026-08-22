@@ -6,10 +6,10 @@ import sqlite3
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
-from fastapi import FastAPI, HTTPException, Query, Response
+from fastapi import FastAPI, HTTPException, Query, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 import uvicorn
 import httpx
@@ -603,7 +603,7 @@ async def query_llm_mentor(user_message: str, context: Dict[str, Any], user_id: 
 app = FastAPI(
     title="FinTex Inbuilt Mentor & Auto-Sync Backend",
     description="UN SDG 8.10 & 4.4 Financial Literacy, Auto-Synced SMS Ledger & Autonomous Inbuilt Mentor with Dynamic NLU Intelligence",
-    version="4.2.0"
+    version="4.3.0"
 )
 
 app.add_middleware(
@@ -614,19 +614,37 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Explicit static file routes for Vercel Serverless reliability
+# Vercel Path Normalization Middleware
+@app.middleware("http")
+async def vercel_path_normalizer(request: Request, call_next):
+    path = request.scope.get("path", "")
+    if path.startswith("/api/index.py"):
+        subpath = path[len("/api/index.py"):]
+        request.scope["path"] = subpath if (subpath and subpath.startswith("/")) else ("/" + subpath if subpath else "/")
+    elif path.startswith("/api/index"):
+        subpath = path[len("/api/index"):]
+        request.scope["path"] = subpath if (subpath and subpath.startswith("/")) else ("/" + subpath if subpath else "/")
+    
+    response = await call_next(request)
+    return response
+
+# Explicit static file routes with direct string reading for Vercel Serverless reliability
 @app.get("/static/style.css", include_in_schema=False)
+@app.get("/api/index.py/static/style.css", include_in_schema=False)
 def get_css():
     css_path = os.path.join(STATIC_DIR, "style.css")
     if os.path.exists(css_path):
-        return FileResponse(css_path, media_type="text/css")
+        with open(css_path, "r", encoding="utf-8") as f:
+            return Response(content=f.read(), media_type="text/css")
     return Response(content="/* CSS */", media_type="text/css")
 
 @app.get("/static/app.js", include_in_schema=False)
+@app.get("/api/index.py/static/app.js", include_in_schema=False)
 def get_js():
     js_path = os.path.join(STATIC_DIR, "app.js")
     if os.path.exists(js_path):
-        return FileResponse(js_path, media_type="application/javascript")
+        with open(js_path, "r", encoding="utf-8") as f:
+            return Response(content=f.read(), media_type="application/javascript")
     return Response(content="// JS", media_type="application/javascript")
 
 if os.path.exists(STATIC_DIR):
@@ -636,11 +654,15 @@ if os.path.exists(STATIC_DIR):
         pass
 
 @app.get("/", include_in_schema=False)
+@app.get("/api/index.py", include_in_schema=False)
+@app.get("/api/index", include_in_schema=False)
+@app.get("/index.html", include_in_schema=False)
 def get_index():
     index_file = os.path.join(STATIC_DIR, "index.html")
     if os.path.exists(index_file):
-        return FileResponse(index_file, media_type="text/html")
-    return {"message": "FinTex Backend is Running. Please visit /docs for API documentation."}
+        with open(index_file, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    return HTMLResponse(content="<h1>FinTex is running. Please check /docs</h1>")
 
 @app.get("/favicon.ico", include_in_schema=False)
 def favicon():
@@ -700,7 +722,7 @@ def health():
     return {
         "status": "ok",
         "service": "FinTex AI Financial Companion & Inbuilt Mentor",
-        "version": "4.2.0",
+        "version": "4.3.0",
         "sdg": ["SDG 8.10", "SDG 4.4"],
         "llm_engine": "Comprehensive-Conversational-NLU",
         "features": ["Login/Phone-Sync", "Overview", "Expenses", "Budget", "Goals", "Autonomous-Mentor"]
