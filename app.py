@@ -9,7 +9,7 @@ from datetime import datetime
 from fastapi import FastAPI, HTTPException, Query, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, FileResponse
 from pydantic import BaseModel, Field
 import uvicorn
 import httpx
@@ -30,8 +30,6 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "sk-proj-0irpLLrE1tB0pWZtE0D1d3ee_e
 
 # Static directory resolution
 STATIC_DIR = os.path.join(BASE_DIR, "static")
-if not os.path.exists(STATIC_DIR):
-    STATIC_DIR = os.path.join(BASE_DIR, "..", "static")
 if not os.path.exists(STATIC_DIR):
     STATIC_DIR = os.path.abspath("static")
 
@@ -603,7 +601,7 @@ async def query_llm_mentor(user_message: str, context: Dict[str, Any], user_id: 
 app = FastAPI(
     title="FinTex Inbuilt Mentor & Auto-Sync Backend",
     description="UN SDG 8.10 & 4.4 Financial Literacy, Auto-Synced SMS Ledger & Autonomous Inbuilt Mentor with Dynamic NLU Intelligence",
-    version="4.3.0"
+    version="4.4.0"
 )
 
 app.add_middleware(
@@ -614,44 +612,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Vercel Path Normalization Middleware
-@app.middleware("http")
-async def vercel_path_normalizer(request: Request, call_next):
-    # Check for original requested path forwarded by Vercel
-    orig_path = request.headers.get("x-matched-path") or request.headers.get("x-vercel-matched-path") or request.headers.get("x-forwarded-uri") or request.headers.get("x-invoke-path")
-    if orig_path and not orig_path.startswith("/api/index.py"):
-        request.scope["path"] = orig_path
-    else:
-        path = request.scope.get("path", "")
-        if path.startswith("/api/index.py"):
-            subpath = path[len("/api/index.py"):]
-            request.scope["path"] = subpath if (subpath and subpath.startswith("/")) else ("/" + subpath if subpath else "/")
-        elif path.startswith("/api/index"):
-            subpath = path[len("/api/index"):]
-            request.scope["path"] = subpath if (subpath and subpath.startswith("/")) else ("/" + subpath if subpath else "/")
-    
-    response = await call_next(request)
-    return response
-
-# Explicit static file routes with direct string reading for Vercel Serverless reliability
-@app.get("/static/style.css", include_in_schema=False)
-@app.get("/api/index.py/static/style.css", include_in_schema=False)
-def get_css():
-    css_path = os.path.join(STATIC_DIR, "style.css")
-    if os.path.exists(css_path):
-        with open(css_path, "r", encoding="utf-8") as f:
-            return Response(content=f.read(), media_type="text/css")
-    return Response(content="/* CSS */", media_type="text/css")
-
-@app.get("/static/app.js", include_in_schema=False)
-@app.get("/api/index.py/static/app.js", include_in_schema=False)
-def get_js():
-    js_path = os.path.join(STATIC_DIR, "app.js")
-    if os.path.exists(js_path):
-        with open(js_path, "r", encoding="utf-8") as f:
-            return Response(content=f.read(), media_type="application/javascript")
-    return Response(content="// JS", media_type="application/javascript")
-
 if os.path.exists(STATIC_DIR):
     try:
         app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -659,9 +619,6 @@ if os.path.exists(STATIC_DIR):
         pass
 
 @app.get("/", include_in_schema=False)
-@app.get("/api/index.py", include_in_schema=False)
-@app.get("/api/index", include_in_schema=False)
-@app.get("/index.html", include_in_schema=False)
 def get_index():
     index_file = os.path.join(STATIC_DIR, "index.html")
     if os.path.exists(index_file):
@@ -727,7 +684,7 @@ def health():
     return {
         "status": "ok",
         "service": "FinTex AI Financial Companion & Inbuilt Mentor",
-        "version": "4.3.0",
+        "version": "4.4.0",
         "sdg": ["SDG 8.10", "SDG 4.4"],
         "llm_engine": "Comprehensive-Conversational-NLU",
         "features": ["Login/Phone-Sync", "Overview", "Expenses", "Budget", "Goals", "Autonomous-Mentor"]
