@@ -617,13 +617,18 @@ app.add_middleware(
 # Vercel Path Normalization Middleware
 @app.middleware("http")
 async def vercel_path_normalizer(request: Request, call_next):
-    path = request.scope.get("path", "")
-    if path.startswith("/api/index.py"):
-        subpath = path[len("/api/index.py"):]
-        request.scope["path"] = subpath if (subpath and subpath.startswith("/")) else ("/" + subpath if subpath else "/")
-    elif path.startswith("/api/index"):
-        subpath = path[len("/api/index"):]
-        request.scope["path"] = subpath if (subpath and subpath.startswith("/")) else ("/" + subpath if subpath else "/")
+    # Check for original requested path forwarded by Vercel
+    orig_path = request.headers.get("x-matched-path") or request.headers.get("x-vercel-matched-path") or request.headers.get("x-forwarded-uri") or request.headers.get("x-invoke-path")
+    if orig_path and not orig_path.startswith("/api/index.py"):
+        request.scope["path"] = orig_path
+    else:
+        path = request.scope.get("path", "")
+        if path.startswith("/api/index.py"):
+            subpath = path[len("/api/index.py"):]
+            request.scope["path"] = subpath if (subpath and subpath.startswith("/")) else ("/" + subpath if subpath else "/")
+        elif path.startswith("/api/index"):
+            subpath = path[len("/api/index"):]
+            request.scope["path"] = subpath if (subpath and subpath.startswith("/")) else ("/" + subpath if subpath else "/")
     
     response = await call_next(request)
     return response
