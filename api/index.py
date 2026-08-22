@@ -19,7 +19,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 if IS_VERCEL:
     DB_FILE = "/tmp/finance_companion.db"
 else:
-    DB_FILE = os.path.join(os.path.dirname(BASE_DIR), "finance_companion.db")
+    DB_FILE = os.path.join(BASE_DIR, "finance_companion.db")
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "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")
 
@@ -574,7 +574,7 @@ async def query_llm_mentor(user_message: str, context: Dict[str, Any], user_id: 
 app = FastAPI(
     title="FinTex Inbuilt Mentor & Auto-Sync Backend",
     description="UN SDG 8.10 & 4.4 Financial Literacy, Auto-Synced SMS Ledger & Autonomous Inbuilt Mentor",
-    version="4.8.0"
+    version="4.9.0"
 )
 
 app.add_middleware(
@@ -632,7 +632,7 @@ class BudgetCapRequest(BaseModel):
     monthly_cap: float
 
 # ==========================================
-# API ROUTERS (DUAL-MOUNTED)
+# API ROUTERS (DUAL-MOUNTED FOR VERCEL)
 # ==========================================
 @app.get("")
 @app.get("/")
@@ -642,7 +642,7 @@ def health():
     return {
         "status": "ok",
         "service": "FinTex AI Financial Companion & Inbuilt Mentor",
-        "version": "4.8.0",
+        "version": "4.9.0",
         "sdg": ["SDG 8.10", "SDG 4.4"],
         "llm_engine": "Comprehensive-Conversational-NLU",
         "features": ["Login/Phone-Sync", "Overview", "Expenses", "Budget", "Goals", "Autonomous-Mentor"]
@@ -976,3 +976,8 @@ def create_goal(req: GoalCreateRequest):
     conn.commit()
     conn.close()
     return {"goal_id": goal_id, "title": req.title, "pacing": pacing}
+
+# Keep api/index.py in sync
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

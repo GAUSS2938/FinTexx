@@ -8,11 +8,7 @@ from datetime import datetime
 
 from fastapi import FastAPI, HTTPException, Query, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, PlainTextResponse, FileResponse
 from pydantic import BaseModel, Field
-import uvicorn
-import httpx
 
 # ==========================================
 # CONFIGURATION & CONSTANTS
@@ -25,13 +21,7 @@ if IS_VERCEL:
 else:
     DB_FILE = os.path.join(BASE_DIR, "finance_companion.db")
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "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")
-
-# Static directory resolution
-STATIC_DIR = os.path.join(BASE_DIR, "static")
-if not os.path.exists(STATIC_DIR):
-    STATIC_DIR = os.path.abspath("static")
 
 # ==========================================
 # DATABASE SETUP & INITIALIZATION
@@ -143,7 +133,6 @@ def init_db():
     );
     """)
     
-    # Auto-migration for users table columns
     cursor.execute("PRAGMA table_info(users)")
     existing_cols = [row[1] for row in cursor.fetchall()]
     if "phone" not in existing_cols:
@@ -154,9 +143,6 @@ def init_db():
     conn.commit()
     conn.close()
 
-# ==========================================
-# SEED DEMO DATA (ANANYA'S STORYLINE)
-# ==========================================
 def seed_demo_data():
     conn = sqlite3.connect(DB_FILE)
     conn.row_factory = sqlite3.Row
@@ -166,26 +152,22 @@ def seed_demo_data():
     if cursor.fetchone()[0] == 0:
         now = datetime.now().isoformat()
         
-        # User: Ananya (College Student, 20)
         cursor.execute("""
         INSERT INTO users (name, phone, sms_permission, knowledge_level, risk_comfort, created_at)
         VALUES ('Ananya', '+91 98765 43210', 1, 'beginner', 'low', ?)
         """, (now,))
         user_id = cursor.lastrowid
         
-        # Financial Profile (Income: 15,000, Essentials: 7,000, Flexible: 4,500, Savings: 10,000)
         cursor.execute("""
         INSERT INTO financial_profiles (user_id, monthly_income, essential_expenses, flexible_expenses, current_savings, updated_at)
         VALUES (?, 15000.0, 7000.0, 4500.0, 10000.0, ?)
         """, (user_id, now))
         
-        # Goal: Laptop (₹40,000 target, ₹10,000 saved, 6 months)
         cursor.execute("""
         INSERT INTO savings_goals (user_id, title, target_amount, current_amount, deadline_months, monthly_target, status)
         VALUES (?, 'Laptop', 40000.0, 10000.0, 6, 5000.0, 'tight_budget')
         """, (user_id,))
         
-        # Budget Caps
         caps = [
             (user_id, 'Food', 5000.0, now),
             (user_id, 'Travel', 2500.0, now),
@@ -198,7 +180,6 @@ def seed_demo_data():
         VALUES (?, ?, ?, ?)
         """, caps)
         
-        # Recent Spending Transactions (Auto-synced via SMS)
         transactions = [
             (user_id, 'Food', 4200.0, 'Swiggy & Campus Cafe', 'Auto-tracked via UPI SMS', now),
             (user_id, 'Travel', 1800.0, 'Uber & Metro', 'Auto-tracked via UPI SMS', now),
@@ -210,7 +191,6 @@ def seed_demo_data():
         VALUES (?, ?, ?, ?, ?, ?)
         """, transactions)
         
-        # Learning Modules (UN SDG 8.10 & 4.4 Financial Skills)
         modules = [
             ('Emergency Funds 101', 1, 'Savings', 'An emergency fund covers 3-6 months of expenses before you begin investing. Keep this liquid in a high-yield savings account or flexible FD.', 1),
             ('Budgeting with 50/30/20', 1, 'Budgeting', 'Allocate 50% of your income to needs (rent, groceries, books), 30% to wants (dining, fun), and 20% directly to savings before you spend.', 0),
@@ -222,7 +202,6 @@ def seed_demo_data():
         VALUES (?, ?, ?, ?, ?)
         """, modules)
         
-        # Action Tasks
         tasks = [
             (user_id, 'Save ₹3,750 this month for Laptop goal', 'This Month', 'pending', 'goal'),
             (user_id, 'Read: Emergency Funds 101', 'This Week', 'pending', 'learning'),
@@ -237,7 +216,7 @@ def seed_demo_data():
     conn.close()
 
 # ==========================================
-# ENGINES: MATH, SMS PARSER & CONTEXT
+# MATH ENGINE & SMS PARSER
 # ==========================================
 class MathEngine:
     @staticmethod
@@ -359,9 +338,6 @@ class ContextBuilder:
             "learning_recommendation": rec_module.get("title", "Emergency Funds 101")
         }
 
-# ==========================================
-# TOOL EXECUTOR
-# ==========================================
 def execute_mentor_tool(tool_name: str, arguments: dict, user_id: int = 1) -> tuple[str, dict]:
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -430,16 +406,13 @@ def execute_mentor_tool(tool_name: str, arguments: dict, user_id: int = 1) -> tu
     conn.close()
     return res_str, action_info
 
-# ==========================================
-# ADVANCED CONVERSATIONAL FINANCIAL NLU
-# ==========================================
 async def query_llm_mentor(user_message: str, context: Dict[str, Any], user_id: int = 1) -> tuple[str, list[dict]]:
     profile = context["user_profile"]
     goal = context["active_goal"]
     msg_raw = user_message.strip()
     msg_lower = msg_raw.lower()
 
-    # 1. INTENT: WEBSITE ACTIONS & MUTATIONS
+    # 1. ACTIONS
     task_add_match = re.search(r'(?:add\s+task|create\s+task|remind\s+me\s+to|add\s+a\s+task)\s*(?::\s*|\s+for\s+me\s*:\s*|\s+to\s+|\s+that\s+)?(.+)', msg_lower, re.IGNORECASE)
     if task_add_match:
         raw_title = task_add_match.group(1).strip()
@@ -473,7 +446,7 @@ async def query_llm_mentor(user_message: str, context: Dict[str, Any], user_id: 
         res_str, act_info = execute_mentor_tool("set_goal", {"title": title_cand, "target_amount": target_amt, "deadline_months": dead_m}, user_id)
         return f"🎯 **Mentor Action Executed:** Goal **{title_cand}** updated to **₹{target_amt:,.0f}** over **{dead_m} months**.", [act_info]
 
-    # 2. TOPIC: INVESTING, STOCKS, CRYPTO, SIP, MUTUAL FUNDS
+    # 2. TOPIC: INVESTING
     if any(k in msg_lower for k in ["invest", "crypto", "bitcoin", "stock", "mutual fund", "sip", "nifty", "shares", "equity"]):
         emergency_needed = profile['essential_expenses'] * 3
         has_buffer = profile['current_savings'] >= emergency_needed
@@ -493,7 +466,7 @@ async def query_llm_mentor(user_message: str, context: Dict[str, Any], user_id: 
                 f"* **Crypto Warning:** Keep high-risk speculative assets (like Bitcoin/Altcoins) under 5% of your total portfolio."
             ), []
 
-    # 3. TOPIC: EMERGENCY FUND & FINANCIAL SAFETY NET
+    # 3. TOPIC: EMERGENCY FUND
     if any(k in msg_lower for k in ["emergency", "safety net", "buffer", "liquid fund", "savings account"]):
         target = profile['essential_expenses'] * 3
         return (
@@ -504,7 +477,7 @@ async def query_llm_mentor(user_message: str, context: Dict[str, Any], user_id: 
             f"* **Check Dashboard:** The **Emergency Funds 101** module on your dashboard walks you through this step-by-step."
         ), []
 
-    # 4. TOPIC: SPENDING BREAKDOWN & RECENT TRANSACTIONS
+    # 4. TOPIC: SPENDING SUMMARY
     if any(k in msg_lower for k in ["show my spend", "what did i spend", "spending on", "how much spent", "expenses breakdown", "my transactions", "recent spending"]):
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -517,7 +490,7 @@ async def query_llm_mentor(user_message: str, context: Dict[str, Any], user_id: 
         else:
             return "You haven't auto-synced any transactions yet. Your incoming bank SMS stream will populate this ledger automatically!", []
 
-    # 5. TOPIC: AFFORDABILITY & DISCRETIONARY PURCHASES
+    # 5. TOPIC: AFFORDABILITY
     if any(k in msg_lower for k in ["afford", "can i buy", "can i spend", "should i buy", "trip", "dinner", "party", "movie", "shopping"]):
         amt_match = re.search(r'(?:rs\.?|inr|₹)?\s*([\d,]+)', msg_lower)
         cost = float(amt_match.group(1).replace(",", "")) if amt_match else 1500.0
@@ -544,7 +517,7 @@ async def query_llm_mentor(user_message: str, context: Dict[str, Any], user_id: 
                 f"* **Mentor Recommendation:** Spending ₹{cost:,.0f} exceeds your safe cushion. Consider limiting this expense to **₹{cushion * 0.5:,.0f}** or extending your goal deadline by 1-2 months."
             ), []
 
-    # 6. TOPIC: COMPOUND INTEREST & WEALTH ACCUMULATION
+    # 6. TOPIC: COMPOUND INTEREST
     if any(k in msg_lower for k in ["compound", "compounding", "interest", "rule of 72", "wealth", "time value"]):
         return (
             f"**The Power of Compound Interest for College Students:**\n\n"
@@ -553,7 +526,7 @@ async def query_llm_mentor(user_message: str, context: Dict[str, Any], user_id: 
             f"* **The Cost of Waiting:** If you invest **₹1,000/month** starting at age 20 (earning 12%), by age 50 you will have over **₹35.3 Lakhs**. If you delay until age 30, you end up with only **₹9.9 Lakhs** — starting 10 years earlier yields nearly 4x more wealth with minimal effort!"
         ), []
 
-    # 7. TOPIC: CREDIT CARDS & CIBIL SCORE BUILDING
+    # 7. TOPIC: CREDIT CARDS
     if any(k in msg_lower for k in ["credit", "cibil", "score", "debt", "loan", "card", "emi", "bnpl"]):
         return (
             f"**Smart Credit Building Strategy for Students (Zero Debt Traps):**\n\n"
@@ -563,7 +536,7 @@ async def query_llm_mentor(user_message: str, context: Dict[str, Any], user_id: 
             f"* **4. Beware of BNPL Micro-Loans:** Quick checkout loan apps report missed ₹200 payments as loan defaults, ruining your credit score for years."
         ), []
 
-    # 8. TOPIC: BUDGETING & 50/30/20 RULE
+    # 8. TOPIC: BUDGETING
     if any(k in msg_lower for k in ["budget", "50/30/20", "allocat", "cap", "needs", "wants"]):
         needs = profile['monthly_income'] * 0.5
         wants = profile['monthly_income'] * 0.3
@@ -576,7 +549,7 @@ async def query_llm_mentor(user_message: str, context: Dict[str, Any], user_id: 
             f"You can view and adjust your category caps with live danger meters on the **Budget** tab."
         ), []
 
-    # 9. GREETINGS & INTRODUCTIONS
+    # 9. GREETINGS
     if any(k in msg_lower for k in ["hello", "hi", "hey", "who are you", "what can you do", "help"]):
         return (
             f"Hello {profile.get('name', 'Ananya')}! 👋 I am your **Inbuilt AI Financial Mentor**.\n\n"
@@ -587,7 +560,7 @@ async def query_llm_mentor(user_message: str, context: Dict[str, Any], user_id: 
             f"* **Guidance:** Ask me about compounding, credit building, emergency buffers, or whether you can afford an outing!"
         ), []
 
-    # 10. GENERAL CONVERSATION
+    # 10. GENERAL
     return (
         f"Here is my guidance on **'{msg_raw}'** based on your financial standing:\n\n"
         f"* **Current Position:** Monthly Income ₹{profile['monthly_income']:,.0f} • Flexible Room ₹{profile['flexible_room']:,.0f} • Savings ₹{profile['current_savings']:,.0f}.\n"
@@ -600,8 +573,8 @@ async def query_llm_mentor(user_message: str, context: Dict[str, Any], user_id: 
 # ==========================================
 app = FastAPI(
     title="FinTex Inbuilt Mentor & Auto-Sync Backend",
-    description="UN SDG 8.10 & 4.4 Financial Literacy, Auto-Synced SMS Ledger & Autonomous Inbuilt Mentor with Dynamic NLU Intelligence",
-    version="4.4.0"
+    description="UN SDG 8.10 & 4.4 Financial Literacy, Auto-Synced SMS Ledger & Autonomous Inbuilt Mentor",
+    version="4.9.0"
 )
 
 app.add_middleware(
@@ -611,24 +584,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-if os.path.exists(STATIC_DIR):
-    try:
-        app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
-    except Exception:
-        pass
-
-@app.get("/", include_in_schema=False)
-def get_index():
-    index_file = os.path.join(STATIC_DIR, "index.html")
-    if os.path.exists(index_file):
-        with open(index_file, "r", encoding="utf-8") as f:
-            return HTMLResponse(content=f.read())
-    return HTMLResponse(content="<h1>FinTex is running. Please check /docs</h1>")
-
-@app.get("/favicon.ico", include_in_schema=False)
-def favicon():
-    return Response(status_code=204)
 
 class LoginRequest(BaseModel):
     name: str = "Ananya"
@@ -677,19 +632,23 @@ class BudgetCapRequest(BaseModel):
     monthly_cap: float
 
 # ==========================================
-# API ROUTERS
+# API ROUTERS (DUAL-MOUNTED FOR VERCEL)
 # ==========================================
+@app.get("")
+@app.get("/")
+@app.get("/health")
 @app.get("/api/health")
 def health():
     return {
         "status": "ok",
         "service": "FinTex AI Financial Companion & Inbuilt Mentor",
-        "version": "4.4.0",
+        "version": "4.9.0",
         "sdg": ["SDG 8.10", "SDG 4.4"],
         "llm_engine": "Comprehensive-Conversational-NLU",
         "features": ["Login/Phone-Sync", "Overview", "Expenses", "Budget", "Goals", "Autonomous-Mentor"]
     }
 
+@app.post("/auth/login")
 @app.post("/api/auth/login")
 def login_user(req: LoginRequest):
     conn = get_db_connection()
@@ -723,6 +682,7 @@ def login_user(req: LoginRequest):
     conn.close()
     return {"status": "authenticated", "user_id": user_id, "name": req.name, "phone": req.phone, "sms_sync_active": req.sms_permission}
 
+@app.get("/dashboard/summary")
 @app.get("/api/dashboard/summary")
 def get_dashboard(user_id: int = 1):
     context = ContextBuilder.build_user_context(user_id)
@@ -777,6 +737,7 @@ def get_dashboard(user_id: int = 1):
         "tasks": tasks
     }
 
+@app.get("/transactions")
 @app.get("/api/transactions")
 def get_transactions(user_id: int = 1, category: Optional[str] = None, search: Optional[str] = None, limit: int = 50):
     conn = get_db_connection()
@@ -799,6 +760,7 @@ def get_transactions(user_id: int = 1, category: Optional[str] = None, search: O
     conn.close()
     return {"transactions": rows, "count": len(rows)}
 
+@app.get("/budget/caps")
 @app.get("/api/budget/caps")
 def get_budget_caps(user_id: int = 1):
     conn = get_db_connection()
@@ -814,6 +776,7 @@ def get_budget_caps(user_id: int = 1):
     conn.close()
     return {"budget_caps": rows}
 
+@app.post("/budget/caps")
 @app.post("/api/budget/caps")
 def update_budget_cap(req: BudgetCapRequest):
     conn = get_db_connection()
@@ -831,6 +794,7 @@ def update_budget_cap(req: BudgetCapRequest):
     conn.close()
     return {"status": "updated", "category": req.category, "monthly_cap": req.monthly_cap}
 
+@app.post("/goals/calculate")
 @app.post("/api/goals/calculate")
 def calculate_goal(req: GoalCalculateRequest):
     result = MathEngine.calculate_savings_pacing(
@@ -842,6 +806,7 @@ def calculate_goal(req: GoalCalculateRequest):
     )
     return result
 
+@app.post("/transactions/sms-ingest")
 @app.post("/api/transactions/sms-ingest")
 def ingest_sms(req: SMSIngestRequest, user_id: int = 1):
     parsed = SMSParser.parse(req.raw_sms)
@@ -868,6 +833,7 @@ def ingest_sms(req: SMSIngestRequest, user_id: int = 1):
         "alert": alert
     }
 
+@app.post("/companion/chat")
 @app.post("/api/companion/chat")
 async def companion_chat(req: ChatRequest):
     context = ContextBuilder.build_user_context(req.user_id or 1)
@@ -893,6 +859,7 @@ async def companion_chat(req: ChatRequest):
         }
     }
 
+@app.get("/learning/modules")
 @app.get("/api/learning/modules")
 def get_learning_modules(user_id: int = 1):
     context = ContextBuilder.build_user_context(user_id)
@@ -915,6 +882,7 @@ def get_learning_modules(user_id: int = 1):
 
     return {"modules": modules}
 
+@app.get("/tasks")
 @app.get("/api/tasks")
 def get_tasks(user_id: int = 1):
     conn = get_db_connection()
@@ -924,6 +892,7 @@ def get_tasks(user_id: int = 1):
     conn.close()
     return {"tasks": tasks}
 
+@app.post("/tasks")
 @app.post("/api/tasks")
 def add_task(req: TaskCreateRequest):
     conn = get_db_connection()
@@ -937,6 +906,7 @@ def add_task(req: TaskCreateRequest):
     conn.close()
     return {"task_id": task_id, "title": req.title, "due_date": req.due_date, "status": "pending"}
 
+@app.delete("/tasks/{task_id}")
 @app.delete("/api/tasks/{task_id}")
 def delete_task(task_id: int):
     conn = get_db_connection()
@@ -946,6 +916,7 @@ def delete_task(task_id: int):
     conn.close()
     return {"status": "deleted", "task_id": task_id}
 
+@app.post("/tasks/{task_id}/toggle")
 @app.post("/api/tasks/{task_id}/toggle")
 def toggle_task(task_id: int):
     conn = get_db_connection()
@@ -962,6 +933,7 @@ def toggle_task(task_id: int):
     conn.close()
     return {"task_id": task_id, "new_status": new_status}
 
+@app.put("/profile")
 @app.put("/api/profile")
 def update_profile(req: ProfileUpdateRequest):
     conn = get_db_connection()
@@ -984,6 +956,7 @@ def update_profile(req: ProfileUpdateRequest):
         "current_savings": req.current_savings
     }
 
+@app.post("/goals")
 @app.post("/api/goals")
 def create_goal(req: GoalCreateRequest):
     conn = get_db_connection()
@@ -1004,8 +977,7 @@ def create_goal(req: GoalCreateRequest):
     conn.close()
     return {"goal_id": goal_id, "title": req.title, "pacing": pacing}
 
-# ==========================================
-# SERVER RUNNER
-# ==========================================
+# Keep api/index.py in sync
 if __name__ == "__main__":
+    import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
